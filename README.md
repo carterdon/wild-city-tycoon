@@ -3,7 +3,7 @@
 A simple, fun, turn-based browser strategy game built with pure HTML/JS.
 
 ## 🚀 How to Play
-[在这里放上你的 GitHub Pages 链接]
+[Put your GitHub Pages link]
 
 ## 🛠️ Want to Contribute?
 I'm looking for help to make this game even better! Feel free to:
