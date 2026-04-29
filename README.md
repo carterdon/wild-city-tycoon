@@ -1,17 +1,23 @@
-# Wild City Tycoon
+# Wild City Tycoon 🎲
 
-A simple, fun, turn-based browser strategy game built with pure HTML/JS.
+A fast-paced, turn-based browser strategy game built with **pure HTML/JS**. Manage your resources, dominate the market, and bankrupt your opponents!
 
-## 🚀 How to Play
-[Put your GitHub Pages link]
+## 🚀 Play Live
+[Insert your GitHub Pages link here]
 
-## 🛠️ Want to Contribute?
-I'm looking for help to make this game even better! Feel free to:
-- **Fork** this repository.
-- **Submit a Pull Request** with new features, bug fixes, or UI improvements.
-- **Open an Issue** if you find a bug or have a great game design idea.
+## 🎮 Game Features
+- **Turn-based Strategy:** Roll the dice, move, and manage your properties.
+- **Dynamic Economy:** Invest in shares, buy tactical items, and sabotage opponents.
+- **Zero Dependencies:** Built entirely with native web technologies (HTML, CSS, JS).
 
-Current roadmap:
-- [ ] Add more random events
-- [ ] Improve AI decision-making
-- [ ] Add custom character skins
+## 🛠️ Tech Stack
+- **Frontend:** HTML5, CSS3, Vanilla JavaScript (no external frameworks).
+
+## 🤝 Contribution Guidelines
+This is an open-source project and I welcome all kinds of contributions!
+- **Bug Reports:** If you find a bug, please open an **Issue**.
+- **Features:** Have a great idea for a new random event or item? **Fork** this repo and submit a **Pull Request**.
+- **Optimization:** Help me improve the AI or UI code.
+
+## 📄 License
+This project is licensed under the [MIT License](LICENSE).
