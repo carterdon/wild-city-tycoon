@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wild City Tycoon: Capital Mogul</title>
+<style>
+    :root {
+        --board-bg: #cfd8dc;
+        --tile-bg: #fff;
+        --hp-color: #f44336;
+        --money-color: #ffc107;
+        --hp-bg: #444;
+    }
+
+    * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
+    body { margin: 0; padding: 0; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: #eceff1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Main Container */
+    #game-container {
+        flex: 1; position: relative; width: 100%; max-width: 650px; margin: 0 auto;
+        display: flex; flex-direction: column; background: #fff; box-shadow: 0 0 25px rgba(0,0,0,0.3);
+        height: 100%;
+    }
+
+    /* Status Bar */
+    #status-bar {
+        flex: 0 0 190px;
+        background: #263238; color: #fff;
+        display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+        padding: 6px; font-size: 11px; gap: 6px; border-bottom: 2px solid #000;
+        overflow: hidden;
+    }
+    .player-stat {
+        background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px;
+        display: flex; flex-direction: column; border: 1px solid #455a64; position: relative;
+        transition: all 0.3s;
+        overflow: hidden;
+    }
+    .player-stat.active { background: #37474f; border: 2px solid var(--money-color); z-index: 5; }
+    .player-stat.bankrupt { opacity: 0.3; filter: grayscale(1); border: 1px dashed #666; }
+    
+    .head-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-weight: bold; font-size: 12px; white-space: nowrap; }
+    .hp-bar-container {
+        height: 8px; background: var(--hp-bg); border-radius: 4px; overflow: hidden; margin-bottom: 2px;
+        position: relative; border: 1px solid #000; flex-shrink: 0;
+    }
+    .hp-fill { height: 100%; background: linear-gradient(90deg, #d32f2f, #ff5252); transition: width 0.4s ease-out; }
+    .money-text { color: var(--money-color); font-weight: bold; font-size: 12px; text-shadow: 1px 1px 0 #000; }
+
+    .items-row { flex: 1; display: flex; flex-wrap: wrap; gap: 2px; overflow: hidden; align-content: flex-start; }
+    .item-icon { font-size: 12px; background: rgba(0,0,0,0.3); padding: 0 2px; border-radius: 3px; border: 1px solid #555; height: 16px; line-height: 14px; }
+    
+    .stock-info { font-size: 11px; color: #81d4fa; margin-top: 2px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+
+    /* Board Area */
+    #board-area {
+        flex: 1;
+        position: relative; background: var(--board-bg);
+        display: grid; 
+        grid-template-columns: repeat(7, 1fr); 
+        grid-template-rows: repeat(7, 1fr);
+        gap: 2px; padding: 4px;
+        min-height: 0;
+    }
+
+    .tile {
+        background: var(--tile-bg); border: 1px solid #90a4ae; border-radius: 4px;
+        position: relative; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; text-align: center;
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.1); transition: background 0.2s;
+        overflow: hidden;
+    }
+    .tile-name { font-weight: bold; font-size: 9px; line-height: 1.1; z-index: 2; color: #333; transform: scale(0.9); }
+    .tile-price { color: #2e7d32; font-size: 9px; font-weight: bold; z-index: 2; margin-top: 0px; transform: scale(0.9); }
+    
+    .house-bar { position: absolute; top: 2px; width: 80%; height: 3px; display: flex; gap: 1px; z-index: 3; }
+    .house-level { flex: 1; background: #eee; border-radius: 1px; border: 0.5px solid #ccc; }
+    .house-filled { background: #e64a19; box-shadow: 0 0 2px rgba(0,0,0,0.3); }
+
+    .tile.special { background: #fff9c4; } 
+    .tile.shop { background: #f3e5f5; border-color: #ab47bc; }
+    .tile.weapon-shop { background: #ffebee; border-color: #e53935; }
+    .tile.corner { background: #b2dfdb; font-weight: bold; color: #00695c; }
+    .tile.developer { background: #263238; border-color: #000; }
+    .tile.developer .tile-name { color: #fff; }
+
+    .owner-mark { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.35; pointer-events: none; transition: background 0.3s; }
+
+    .token {
+        width: 24px; height: 24px; border-radius: 50%; position: absolute; z-index: 20;
+        border: 2px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+        display: flex; align-items: center; justify-content: center; font-size: 14px;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+    }
+
+    /* Controls */
+    #controls { 
+        flex: 0 0 130px;
+        background: #eee; border-top: 3px solid #ccc; 
+        display: flex; flex-direction: column; align-items: center; padding: 8px; 
+    }
+    #msg-box { font-size: 13px; height: 18px; margin-bottom: 8px; color: #d32f2f; font-weight: bold; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; width: 90%; }
+    
+    .action-row { display: flex; gap: 15px; align-items: center; width: 100%; justify-content: center; }
+    .btn { padding: 10px 20px; border-radius: 25px; border: none; font-weight: bold; color: white; cursor: pointer; font-size: 14px; box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: all 0.1s; }
+    .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+    #roll-btn { background: linear-gradient(to bottom, #ff9800, #f57c00); }
+    #roll-btn:disabled { background: #aaa; cursor: not-allowed; box-shadow: none; }
+    #prop-btn { background: #7b1fa2; }
+
+    /* Modal */
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; align-items: center; justify-content: center; }
+    .modal-card { background: #fff; width: 85%; max-width: 320px; padding: 20px; border-radius: 15px; text-align: center; border: 4px solid #3f51b5; animation: pop 0.3s; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    @keyframes pop { from{transform:scale(0.8);} to{transform:scale(1);} }
+    .option-btn { width: 100%; padding: 10px; margin: 6px 0; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; color: #1565c0; }
+    .option-btn:hover { background: #bbdefb; }
+    
+    #fx-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; display: none; align-items: center; justify-content: center; font-size: 60px; text-shadow: 0 0 15px #fff; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="status-bar"></div>
+    <div id="board-area"><div id="fx-layer"></div></div>
+    <div id="controls">
+        <div id="msg-box">Welcome to Wild City! Loading...</div>
+        <div class="action-row">
+            <button id="prop-btn" class="btn" onclick="Game.humanOpenInventory()">🎒 Backpack</button>
+            <div id="dice-val" style="font-size:32px; font-weight:bold; background:#fff; width:50px; height:50px; display:flex; align-items:center; justify-content:center; border-radius:10px; border:3px solid #333;">🎲</div>
+            <button id="roll-btn" class="btn" onclick="Game.handleHumanRoll()">Roll Dice</button>
+        </div>
+        <div id="turn-msg" style="font-size:12px; color:#666; margin-top:6px;">Ready to Start</div>
+    </div>
+</div>
+
+<div id="modal-overlay" class="modal">
+    <div class="modal-card">
+        <div id="m-title" style="font-size:18px; font-weight:bold; margin-bottom:10px; color:#1a237e;"></div>
+        <div id="m-content" style="font-size:14px; margin-bottom:15px; color:#444; line-height:1.4;"></div>
+        <div id="m-btns"></div>
+    </div>
+</div>
+
+<script>
+/* ================= Sound & Config ================= */
+const AudioSys = {
+    ctx: null,
+    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+    play(f, d=0.2, t='sine') {
+        if(!this.ctx) return;
+        try {
+            const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+            o.type = t; o.frequency.value = f;
+            g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + d);
+            o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime + d);
+        } catch(e){}
+    }
+};
+
+const ITEMS = {
+    remote:   { name: "Remote Controller", price: 300, icon: "🎮" },
+    shield:   { name: "Hire Thief", price: 500, icon: "🦹" },
+    taxtool:  { name: "Tax Audit", price: 800, icon: "👮" },
+    revive:   { name: "Revive Kit", price: 8000, icon: "✝️" },
+    w_stick:  { name: "Wooden Club",   price: 400, icon: "🪵", dmg: 500 },
+    w_gun:    { name: "Handgun",   price: 1500, icon: "🔫", dmg: 1500 },
+    w_bomb:   { name: "Mega Bomb",   price: 3000, icon: "💣", dmg: 3000 },
+    w_nuke:   { name: "Atomic Rocket",   price: 6000, icon: "🚀", dmg: 6000 }
+};
+
+const TILES_CONFIG = [
+    { type: 'start', name: 'START' }, 
+    { type: 'prop', name: 'Frozen Peaks A', price: 600, rent: 200 },
+    { type: 'prop', name: 'Frozen Peaks B', price: 600, rent: 200 },
+    { type: 'shop', name: 'Mega Mall', stockKey: 'shop' }, 
+    { type: 'prop', name: 'Desert Oasis A', price: 900, rent: 350 },
+    { type: 'prop', name: 'Desert Oasis B', price: 900, rent: 350 },
+    { type: 'prison', name: 'Cold Jail' }, 
+    { type: 'prop', name: 'Emerald Canopy A', price: 1200, rent: 500 },
+    { type: 'chance', name: 'Fate Wheel' },
+    { type: 'prop', name: 'Emerald Canopy B', price: 1200, rent: 500 },
+    { type: 'prop', name: 'Sapphire Bay A', price: 1500, rent: 700 },
+    { type: 'prop', name: 'Sapphire Bay B', price: 1500, rent: 700 },
+    { type: 'hospital', name: 'City Hospital' }, 
+    { type: 'prop', name: 'Wall Street A', price: 2000, rent: 1000 },
+    { type: 'weapon_shop', name: 'Tactical Depot', stockKey: 'weapon' }, 
+    { type: 'prop', name: 'Wall Street B', price: 2000, rent: 1000 },
+    { type: 'developer', name: 'Apex Real Estate', stockKey: 'dev' },
+    { type: 'prop', name: 'Victory Plaza A', price: 3000, rent: 1500 },
+    { type: 'lottery', name: 'Lucky Lotto' }, 
+    { type: 'prop', name: 'Victory Plaza B', price: 3000, rent: 1500 },
+    { type: 'prop', name: 'Underworld A', price: 400, rent: 100 },
+    { type: 'chance', name: 'Fate Wheel' },
+    { type: 'prop', name: 'Underworld B', price: 400, rent: 100 },
+    { type: 'shop', name: 'Shady Dealings', stockKey: 'black' } 
+];
+
+const StockSys = {
+    round: 0,
+    facilities: {
+        shop: { name: 'Mega Mall', total: 20000, sold: 0, price: 10, pool: 0 },
+        weapon: { name: 'Tactical Depot', total: 20000, sold: 0, price: 15, pool: 0 },
+        dev: { name: 'Apex Real Estate', total: 20000, sold: 0, price: 25, pool: 0 },
+        black: { name: 'Shady Dealings', total: 20000, sold: 0, price: 20, pool: 0 }
+    },
+    addRevenue(key, amount) { if(this.facilities[key]) this.facilities[key].pool += amount; },
+    buyStock(p, key, amount) {
+        const fac = this.facilities[key];
+        if(fac.sold + amount > fac.total) amount = fac.total - fac.sold;
+        const cost = amount * fac.price;
+        if(p.money >= cost && amount > 0) {
+            p.money -= cost; p.shares[key] = (p.shares[key] || 0) + amount; fac.sold += amount;
+            return true;
+        }
+        return false;
+    }
+};
+
+const INIT_HP = 5000;
+const INIT_MONEY = 5000;
+const PLAYERS = [
+    { id: 'p1', name: 'Entrepreneur', color: '#2196F3', hp: 5000, money: INIT_MONEY, pos: 0, stop: 0, isHuman: true, avatar: '👨‍💼', items: {}, shares: {}, isDead: false },
+    { id: 'p2', name: 'Sheriff Rabbit', color: '#9C27B0', hp: INIT_HP, money: INIT_MONEY, pos: 0, stop: 0, isHuman: false, avatar: '🐰', items: {}, shares: {}, isDead: false },
+    { id: 'p3', name: 'Street Fox', color: '#FF5722', hp: INIT_HP, money: INIT_MONEY, pos: 0, stop: 0, isHuman: false, avatar: '🦊', items: {}, shares: {}, isDead: false },
+    { id: 'p4', name: 'Turbo Sloth', color: '#795548', hp: INIT_HP, money: INIT_MONEY, pos: 0, stop: 0, isHuman: false, avatar: '🦥', items: {}, shares: {}, isDead: false }
+];
+PLAYERS.forEach(p => { Object.keys(ITEMS).forEach(k => p.items[k] = 0); Object.keys(StockSys.facilities).forEach(k => p.shares[k] = 0); });
+
+/* ================= Game Core ================= */
+const Game = {
+    turn: 0,
+    tiles: [],
+    
+    init() {
+        try {
+            this.createBoard();
+            this.updateStatus();
+            setTimeout(() => {
+                this.renderTokens();
+                this.startTurn();
+                this.say("The Battle for Fortune begins!");
+            }, 300);
+        } catch(e) { alert("Initialization failed: " + e.message); }
+    },
+
+    createBoard() {
+        const board = document.getElementById('board-area');
+        const posMap = [];
+        for(let c=1; c<=7; c++) posMap.push([1, c]); 
+        for(let r=2; r<=6; r++) posMap.push([r, 7]); 
+        for(let c=7; c>=1; c--) posMap.push([7, c]); 
+        for(let r=6; r>=2; r--) posMap.push([r, 1]); 
+
+        TILES_CONFIG.forEach((cfg, index) => {
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+            if(['start','prison','hospital','lottery'].includes(cfg.type)) tile.classList.add('corner');
+            if(['shop','weapon_shop','developer','lottery','chance'].includes(cfg.type)) tile.classList.add('special');
+            if(cfg.type === 'shop') tile.classList.add('shop');
+            if(cfg.type === 'weapon_shop') tile.classList.add('weapon-shop');
+            if(cfg.type === 'developer') tile.classList.add('developer');
+
+            const [r, c] = posMap[index];
+            tile.style.gridRow = r; tile.style.gridColumn = c;
+            tile.id = `tile-${index}`;
+            let html = `<div class="tile-name">${cfg.name}</div>`;
+            if(cfg.price) html += `<div class="tile-price">$${cfg.price}</div>`;
+            if(cfg.type === 'prop') html += `<div class="house-bar"><div class="house-level"></div><div class="house-level"></div><div class="house-level"></div></div>`;
+            html += `<div class="owner-mark" id="owner-${index}"></div>`;
+            tile.innerHTML = html;
+            board.appendChild(tile);
+            this.tiles[index] = { ...cfg, level: 0, owner: null };
+        });
+    },
+
+    updateStatus() {
+        const bar = document.getElementById('status-bar');
+        bar.innerHTML = '';
+        PLAYERS.forEach((p, i) => {
+            const div = document.createElement('div');
+            div.className = `player-stat ${i === this.turn ? 'active' : ''} ${p.isDead ? 'bankrupt' : ''}`;
+            div.style.borderLeft = `4px solid ${p.color}`;
+            const maxHp = INIT_HP; 
+            const hpPer = (p.hp / maxHp) * 100;
+            
+            let itemsStr = "";
+            for(let k in p.items) if(p.items[k]>0) itemsStr += `<span class="item-icon">${ITEMS[k].icon}</span>`;
+            
+            let totalShares = 0;
+            Object.values(p.shares).forEach(s => totalShares += s);
+
+            div.innerHTML = `
+                <div class="head-row"><span>${p.avatar} ${p.name}</span> <span class="money-text">$${p.money}</span></div>
+                <div class="hp-bar-container"><div class="hp-fill" style="width:${Math.max(0,hpPer)}%"></div></div>
+                <div style="font-size:10px; margin-top:0px;">HP:${p.hp}</div>
+                <div class="items-row">${itemsStr}</div>
+                <div class="stock-info">📊 Shares: ${totalShares}</div>
+            `;
+            bar.appendChild(div);
+        });
+    },
+
+    renderTokens() {
+        document.querySelectorAll('.token').forEach(e => e.remove());
+        PLAYERS.forEach((p, i) => {
+            if(p.isDead) return;
+            const token = document.createElement('div');
+            token.className = 'token';
+            token.innerText = p.avatar; token.style.background = p.color;
+            token.id = `token-${i}`;
+            document.getElementById('board-area').appendChild(token);
+            this.updateTokenPos(i);
+        });
+    },
+
+    updateTokenPos(idx) {
+        const p = PLAYERS[idx];
+        const tile = document.getElementById(`tile-${p.pos}`);
+        const token = document.getElementById(`token-${idx}`);
+        if(!token || !tile) return;
+        const w = tile.offsetWidth;
+        const h = tile.offsetHeight;
+        if(w === 0 || h === 0) return; 
+
+        const offset = [[-6,-6], [6,-6], [-6,6], [6,6]][idx];
+        token.style.left = (tile.offsetLeft + w/2 - 12 + offset[0]) + 'px';
+        token.style.top = (tile.offsetTop + h/2 - 12 + offset[1]) + 'px';
+    },
+
+    startTurn() {
+        if(this.turn === 0) {
+            StockSys.round++;
+            if(StockSys.round > 0 && StockSys.round % 5 === 0) this.distributeDividends();
+        }
+
+        const p = PLAYERS[this.turn];
+        if(p.isDead) { this.endTurn(); return; }
+        document.getElementById('turn-msg').innerText = `Player Turn: ${p.name} (Round ${StockSys.round})`;
+        this.updateStatus();
+        if (p.stop > 0) {
+            p.stop--; this.say(`${p.name} is serving time...`);
+            setTimeout(() => this.endTurn(), 1000);
+            return;
+        }
+        const isHuman = p.isHuman;
+        document.getElementById('roll-btn').disabled = !isHuman;
+        document.getElementById('prop-btn').style.display = (isHuman && Object.values(p.items).some(v=>v>0)) ? 'block' : 'none';
+        
+        if(!isHuman) setTimeout(() => { if(!this.aiAction(p)) this.executeRoll(); }, 1000);
+    },
+
+    distributeDividends() {
+        let log = "";
+        Object.keys(StockSys.facilities).forEach(key => {
+            const fac = StockSys.facilities[key];
+            if(fac.pool > 0) {
+                const dividendPerShare = fac.pool / fac.total;
+                PLAYERS.forEach(p => {
+                    if(!p.isDead && p.shares[key] > 0) {
+                        const bonus = Math.floor(p.shares[key] * dividendPerShare);
+                        if(bonus > 0) { p.money += bonus; log += `<br>${p.name} received $${bonus} from ${fac.name}`; }
+                    }
+                });
+                fac.pool = 0; 
+            }
+        });
+        if(log) this.showModal("📈 Dividends Paid", "Investors rejoice! Profits shared:" + log, [{text:"Awesome!", cb:()=>{}}]);
+    },
+
+    handleHumanRoll() { AudioSys.init(); this.executeRoll(); },
+
+    executeRoll(fixedStep) {
+        document.getElementById('roll-btn').disabled = true;
+        let step = fixedStep || Math.floor(Math.random() * 6) + 1;
+        document.getElementById('dice-val').innerText = step;
+        this.movePlayer(PLAYERS[this.turn], step);
+    },
+
+    movePlayer(p, steps) {
+        let count = 0;
+        const timer = setInterval(() => {
+            p.pos = (p.pos + 1) % TILES_CONFIG.length;
+            this.updateTokenPos(this.turn);
+            AudioSys.play(400, 0.05);
+            if(p.pos === 0) { 
+                p.money += 1000; p.hp += 500; 
+                this.say("Passed GO! Received $1000 and 500HP!"); 
+                this.updateStatus();
+            }
+            if(++count >= steps) { clearInterval(timer); this.handleTile(p); }
+        }, 200);
+    },
+
+    handleTile(p) {
+        const tile = this.tiles[p.pos];
+        this.say(`Landed on: ${tile.name}`);
+        
+        if(tile.type === 'prop') { this.handlePropTile(p, tile); return; }
+
+        if(tile.type === 'shop' || tile.type === 'weapon_shop') {
+            const list = tile.type === 'shop' ? ['remote','shield','taxtool'] : ['w_stick','w_gun','w_bomb','w_nuke'];
+            const stockKey = tile.stockKey;
+            if(p.isHuman) {
+                let customBtns = [];
+                if(tile.name === 'Shady Dealings') {
+                    customBtns.push({
+                        text: "🕵️ Hire a Thief ($500)",
+                        cb: () => {
+                            if(p.money < 500) { this.say("No cash, no crime!"); this.endTurn(); return; }
+                            const targets = PLAYERS.filter(pl => !pl.isDead && pl.id !== p.id);
+                            this.showModal("Pick a Target", "Who shall we rob?", targets.map(t => ({
+                                text: t.name,
+                                cb: () => {
+                                    p.money -= 500; StockSys.addRevenue(stockKey, 500);
+                                    const tItems = Object.keys(t.items).filter(ik => t.items[ik] > 0);
+                                    if(tItems.length > 0) {
+                                        const stolen = tItems[Math.floor(Math.random()*tItems.length)];
+                                        t.items[stolen]--; p.items[stolen]++;
+                                        this.say(`Heist successful! Stole ${ITEMS[stolen].name}!`);
+                                    } else this.say("The target's backpack is empty!");
+                                    this.updateStatus(); this.endTurn();
+                                }
+                            })));
+                        }
+                    });
+                }
+                else if(tile.name === 'Mega Mall') {
+                    customBtns.push({
+                        text: "✝️ Revive Kit ($8000)",
+                        cb: () => {
+                            if(p.money < 8000) { this.say("Not enough funds!"); this.endTurn(); return; }
+                            p.money -= 8000; StockSys.addRevenue(stockKey, 8000);
+                            p.items.revive++; this.say("Life insurance purchased!"); this.updateStatus(); this.endTurn();
+                        }
+                    });
+                }
+                this.shopMenu(p, list, tile.name, stockKey, customBtns); 
+            }
+            else { this.aiShop(p, list, stockKey); this.endTurn(); }
+            return;
+        }
+
+        if(tile.type === 'hospital') {
+            const btns = [];
+            if(p.money >= 1000) btns.push({text: "Treatment ($1k for 2.5k HP)", cb:()=>{p.money-=1000; p.hp+=2500; this.endTurn();}});
+            if(p.hp > 1000) btns.push({text: "Donate Blood (1k HP for $2.5k)", cb:()=>{p.hp-=1000; p.money+=2500; this.endTurn();}});
+            btns.push({text: "Leave", cb: ()=>this.endTurn()});
+            if(p.isHuman) this.showModal("City Hospital", "Select medical service:", btns);
+            else { if(p.hp < 2500 && p.money >= 1000) { p.money-=1000; p.hp+=2500; } else if(p.money<500 && p.hp>3000) { p.hp-=1000; p.money+=2500; } this.endTurn(); }
+            return;
+        }
+
+        if(tile.type === 'lottery') {
+            if(p.money>=500) {
+                if(p.isHuman) this.showModal("Lucky Lotto", "Tickets cost $500", [{text:"Buy One", cb:()=>{this.executeLottery(p)}},{text:"Skip", cb:()=>this.endTurn()}]);
+                else { if(p.money>2000) this.executeLottery(p); else this.endTurn(); }
+            } else { this.say("Too poor for gambling!"); this.endTurn(); }
+            return;
+        }
+
+        if(tile.type === 'chance') { this.executeChance(p); return; }
+
+        if(tile.type === 'developer') { this.handleDeveloperTile(p, tile.stockKey); return; }
+
+        if(tile.type === 'prison') {
+            if(p.id === 'p1') { p.money+=1000; p.stop=1; this.say("Bribed the guards! 1 turn only."); }
+            else { p.stop=2; this.say("Locked up for 2 turns!"); }
+            this.endTurn();
+            return;
+        }
+        this.endTurn();
+    },
+
+    handlePropTile(p, tile) {
+        if(!tile.owner) {
+            if(p.money >= tile.price) {
+                if(p.isHuman) this.showModal("Real Estate", `Purchase ${tile.name} for $${tile.price}?`, [{text:"Buy", cb:()=>{p.money-=tile.price; tile.owner=p.id; this.updateTileUI(p.pos); this.endTurn();}}, {text:"Pass", cb:()=>this.endTurn()}]);
+                else { p.money-=tile.price; tile.owner=p.id; this.updateTileUI(p.pos); this.endTurn(); }
+            } else this.endTurn();
+        } else if(tile.owner !== p.id) {
+            const owner = PLAYERS.find(pl => pl.id === tile.owner);
+            if(owner.isDead) { tile.owner=null; this.updateTileUI(p.pos); this.endTurn(); return; }
+            let rent = tile.rent * Math.pow(2, tile.level);
+            if(p.money >= rent) { p.money-=rent; owner.money+=rent; this.say(`Paid rent: $${rent}`); }
+            else { const left=rent-p.money; p.money=0; p.hp-=left; owner.money+=rent; this.say(`Out of cash! Paid ${left} HP instead!`); this.showFx("💔"); }
+            this.endTurn();
+        } else {
+            const cost = Math.floor(tile.price*0.6);
+            if(tile.level < 3 && p.money >= cost) {
+                if(p.isHuman) this.showModal("Renovation", `Upgrade this property for $${cost}?`, [{text:"Upgrade", cb:()=>{p.money-=cost; tile.level++; this.updateTileUI(p.pos); this.endTurn();}}, {text:"Not now", cb:()=>this.endTurn()}]);
+                else { p.money-=cost; tile.level++; this.updateTileUI(p.pos); this.endTurn(); }
+            } else this.endTurn();
+        }
+    },
+
+    shopMenu(p, keys, title, stockKey, customBtns=[]) {
+        const btns = [];
+        customBtns.forEach(b => btns.push(b));
+        keys.forEach(k => btns.push({
+            text: `${ITEMS[k].icon} ${ITEMS[k].name} ($${ITEMS[k].price})`,
+            cb: () => { if(p.money >= ITEMS[k].price) { p.money-=ITEMS[k].price; p.items[k]++; StockSys.addRevenue(stockKey, ITEMS[k].price); this.say("Thanks for your business!"); } this.endTurn(); }
+        }));
+        
+        const fac = StockSys.facilities[stockKey];
+        btns.push({
+            text: `📈 Invest in Shares ($${fac.price})`,
+            cb: () => {
+                this.showModal("Stock Exchange", `Available: ${fac.total-fac.sold} shares at $${fac.price}/ea`, [
+                    {text:"Buy 100", cb:()=>{if(StockSys.buyStock(p,stockKey,100)){this.say("Shares purchased!");this.endTurn();}else{this.say("Transaction failed!");this.endTurn();}}},
+                    {text:"Buy 500", cb:()=>{if(StockSys.buyStock(p,stockKey,500)){this.say("Large investment confirmed!");this.endTurn();}else{this.say("Insufficient funds!");this.endTurn();}}},
+                    {text:"Back", cb:()=>this.shopMenu(p, keys, title, stockKey, customBtns)}
+                ]);
+            }
+        });
+        btns.push({text:"Exit", cb:()=>this.endTurn()});
+        this.showModal(title, "Welcome, big spender!", btns);
+    },
+
+    aiShop(p, keys, stockKey) {
+        keys.forEach(k => { if(p.money >= ITEMS[k].price+2000 && Math.random()>0.5) { p.money-=ITEMS[k].price; p.items[k]++; StockSys.addRevenue(stockKey, ITEMS[k].price); }});
+        if(p.money > 4000 && Math.random()<0.6) StockSys.buyStock(p, stockKey, 200);
+    },
+
+    executeLottery(p) {
+        p.money -= 500;
+        const r = Math.random();
+        if(r < 0.1) { p.money += 5000; this.say("JACKPOT! +$5000!"); this.showFx("💰"); }
+        else if(r < 0.3) { p.hp += 2000; this.say("Wellness Prize! +2000HP!"); this.showFx("❤️"); }
+        else if(r < 0.6) { p.money += 800; this.say("Small Win! +$800!"); }
+        else this.say("Better luck next time!");
+        this.updateStatus(); this.endTurn();
+    },
+
+    executeChance(p) {
+        const events = [
+            () => { p.pos = Math.floor(Math.random()*24); this.say("Space-time glitch! Teleported!"); this.updateTokenPos(this.turn); this.handleTile(p); },
+            () => { p.money += 1000; this.say("Found a lost wallet! +$1000!"); this.endTurn(); },
+            () => { p.hp -= 800; this.say("Food poisoning! -800HP!"); this.endTurn(); },
+            () => { p.items.w_bomb++; this.say("Found a loose bomb on the street!"); this.endTurn(); },
+            () => { p.money = Math.floor(p.money*0.8); this.say("Online scam! Lost 20% of cash!"); this.endTurn(); }
+        ];
+        events[Math.floor(Math.random()*events.length)]();
+    },
+
+    handleDeveloperTile(p, stockKey) {
+        const actions = {
+            demo: { cost: 2000, exec: () => { this.tiles.forEach((t,i)=>{if(t.owner&&t.owner!==p.id){t.owner=null;t.level=0;this.updateTileUI(i);}}); this.say("The wrecking ball has arrived!"); this.showFx("🏗️"); } },
+            upgrade: { cost: 3000, exec: () => { this.tiles.forEach((t,i)=>{if(t.owner===p.id&&t.level<3){t.level=3;this.updateTileUI(i);}}); this.say("All your properties are now Skyscrapers!"); this.showFx("🏢"); } },
+            buy: { exec: () => {
+                const targets = this.tiles.filter(t=>t.owner&&t.owner!==p.id&&p.money>=t.price);
+                if(targets.length===0) return;
+                const t = targets[Math.floor(Math.random()*targets.length)];
+                const prev = PLAYERS.find(pl=>pl.id===t.owner);
+                p.money-=t.price; if(prev) prev.money+=t.price;
+                t.owner=p.id; this.updateTileUI(this.tiles.indexOf(t));
+                this.say(`Forced a takeover of ${t.name}!`); this.showFx("🤝");
+            }}
+        };
+        const hasEnemy = this.tiles.some(t => t.owner && t.owner !== p.id);
+        const hasOwn = this.tiles.some(t => t.owner === p.id && t.level < 3);
+
+        if(p.isHuman) {
+            const btns = [];
+            if(p.money>=2000 && hasEnemy) btns.push({text:"Mass Demolition ($2000)", cb:()=>{p.money-=2000; StockSys.addRevenue(stockKey,2000); actions.demo.exec(); this.endTurn();}});
+            if(p.money>=3000 && hasOwn) btns.push({text:"Instant Upgrade ($3000)", cb:()=>{p.money-=3000; StockSys.addRevenue(stockKey,3000); actions.upgrade.exec(); this.endTurn();}});
+            btns.push({text:"Hostile Takeover (Pay Price)", cb:()=>{ actions.buy.exec(); this.endTurn(); }});
+            
+            const fac = StockSys.facilities[stockKey];
+            btns.push({text:`📈 Buy Shares ($${fac.price})`, cb:()=>{
+                this.showModal("Real Estate Equity", `Supply: ${fac.total-fac.sold}`, [{text:"Buy 200", cb:()=>{StockSys.buyStock(p,stockKey,200);this.endTurn();}},{text:"Back",cb:()=>this.handleDeveloperTile(p,stockKey)}]);
+            }});
+
+            btns.push({text:"Leave", cb:()=>this.endTurn()});
+            this.showModal("Apex Real Estate", "How can we disrupt the market today?", btns);
+        } else {
+            if(p.money>3000 && Math.random()<0.6) StockSys.buyStock(p, stockKey, 200);
+            else if(p.money>2000 && hasEnemy && Math.random()<0.3) { p.money-=2000; StockSys.addRevenue(stockKey,2000); actions.demo.exec(); }
+            else actions.buy.exec();
+            this.endTurn();
+        }
+    },
+
+    aiAction(p) {
+        const item_priority = ['w_nuke','w_bomb','w_gun','taxtool','w_stick','shield'];
+        for(let k of item_priority) {
+            if(p.items[k] > 0) {
+                const targets = PLAYERS.filter(pl => !pl.isDead && pl.id !== p.id);
+                if(targets.length > 0) {
+                    const t = targets[0];
+                    p.items[k]--;
+                    if(k === 'taxtool') {
+                        if(t.money >= 1000) { t.money -= 1000; this.say("Tax Evasion Audit! Fined $1000!"); }
+                        else { t.hp -= 1000; this.say("No cash? Confiscated HP!"); }
+                    } else if(k === 'shield') {
+                        const keys = Object.keys(t.items).filter(ik=>t.items[ik]>0);
+                        if(keys.length>0) { const s=keys[0]; t.items[s]--; p.items[s]++; this.say(`Thief stole a ${ITEMS[s].name}!`); }
+                    } else {
+                        t.hp -= ITEMS[k].dmg; this.say(`Used ${ITEMS[k].name}! Direct hit!`); this.showFx("💥");
+                    }
+                    this.updateStatus(); setTimeout(() => this.executeRoll(), 1000);
+                    return true;
+                }
+            }
+        }
+        return false;
+    },
+
+    humanOpenInventory() {
+        const p = PLAYERS[this.turn];
+        const btns = [];
+        Object.keys(p.items).forEach(k => {
+            if(p.items[k] > 0) {
+                btns.push({ text: `${ITEMS[k].name} (x${p.items[k]})`, cb: () => {
+                    if(k==='remote') this.showModal("Remote Dice", "Select your destiny", [1,2,3,4,5,6].map(s=>({text:s, cb:()=>{p.items.remote--; this.executeRoll(s);}})));
+                    else if(k==='revive') alert("This item triggers automatically on defeat.");
+                    else {
+                        const targets = PLAYERS.filter(pl=>!pl.isDead&&pl.id!==p.id);
+                        this.showModal("Select Target", "Who is the victim?", targets.map(t=>({text:t.name, cb:()=>{
+                            p.items[k]--;
+                            if(k==='taxtool') { if(t.money>=1000) t.money-=1000; else t.hp-=1000; }
+                            else if(k==='shield') { const keys=Object.keys(t.items).filter(ik=>t.items[ik]>0); if(keys.length) {const s=keys[0];t.items[s]--;p.items[s]++;}}
+                            else t.hp-=ITEMS[k].dmg;
+                            this.updateStatus();
+                        }})));
+                    }
+                }});
+            }
+        });
+        btns.push({text:"Close", cb:()=>{}});
+        this.showModal("Inventory", "Select an item to use:", btns);
+    },
+
+    updateTileUI(idx) {
+        const t = this.tiles[idx];
+        const mark = document.getElementById(`owner-${idx}`);
+        const p = PLAYERS.find(pl => pl.id === t.owner);
+        if(mark) mark.style.background = p ? p.color : 'transparent';
+        const bars = document.getElementById(`tile-${idx}`).querySelectorAll('.house-level');
+        bars.forEach((b, i) => b.className = i < t.level ? 'house-level house-filled' : 'house-level');
+    },
+
+    showModal(t, c, b) {
+        document.getElementById('m-title').innerText = t;
+        document.getElementById('m-content').innerHTML = c;
+        const root = document.getElementById('m-btns'); root.innerHTML = '';
+        b.forEach(btn => {
+            const el = document.createElement('button'); el.className = 'option-btn';
+            el.innerText = btn.text; el.onclick = () => { document.getElementById('modal-overlay').style.display='none'; if(btn.cb) btn.cb(); };
+            root.appendChild(el);
+        });
+        document.getElementById('modal-overlay').style.display = 'flex';
+    },
+
+    say(m) { document.getElementById('msg-box').innerText = m; },
+    showFx(f) { const el = document.getElementById('fx-layer'); el.innerText = f; el.style.display = 'flex'; setTimeout(()=>el.style.display='none', 1000); },
+
+    endTurn() {
+        const p = PLAYERS[this.turn];
+        if(p.hp <= 0 && !p.isDead) {
+            if(p.items.revive > 0) { p.items.revive--; p.hp = 2500; p.money = 1000; this.say("Revive Kit used! Back from the brink!"); this.showFx("😇"); }
+            else { 
+                p.isDead = true; this.say(`${p.name} has gone bankrupt and is eliminated!`); 
+                this.tiles.forEach((t,i) => { if(t.owner === p.id) { t.owner = null; t.level = 0; this.updateTileUI(i); } });
+                const token = document.getElementById(`token-${this.turn}`); if(token) token.style.display = 'none';
+            }
+        }
+        const active = PLAYERS.filter(pl => !pl.isDead);
+        if(active.length === 1) { this.showModal("Victory!", `${active[0].name} is the Ultimate Mogul!`, [{text:"New Game", cb:()=>location.reload()}]); return; }
+        do { this.turn = (this.turn + 1) % PLAYERS.length; } while(PLAYERS[this.turn].isDead);
+        this.startTurn();
+    }
+};
+
+window.onload = () => Game.init();
+</script>
+</body>
+</html>
