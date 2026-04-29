@@ -3,7 +3,7 @@
 A fast-paced, turn-based browser strategy game built with **pure HTML/JS**. Manage your resources, dominate the market, and bankrupt your opponents!
 
 ## 🚀 Play Live
-[Insert your GitHub Pages link here]
+https://carterdon.github.io/wild-city-tycoon/
 
 ## 🎮 Game Features
 - **Turn-based Strategy:** Roll the dice, move, and manage your properties.
